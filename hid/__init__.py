@@ -2,6 +2,7 @@ import os
 import ctypes
 import atexit
 import enum
+import sys
 
 __all__ = ['HIDException', 'DeviceInfo', 'Device', 'enumerate', 'BusType']
 
@@ -146,6 +147,18 @@ hidapi.hid_get_indexed_string.restype = ctypes.c_int
 hidapi.hid_error.argtypes = [ctypes.c_void_p]
 hidapi.hid_error.restype = ctypes.c_wchar_p
 
+if version >= (0, 12, 0) and sys.platform == 'darwin':
+    hidapi.hid_darwin_get_location_id.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
+    hidapi.hid_darwin_get_location_id.restype = ctypes.c_int
+
+    hidapi.hid_darwin_set_open_exclusive.argtypes = [ctypes.c_int]
+    hidapi.hid_darwin_set_open_exclusive.restype = None
+
+    hidapi.hid_darwin_get_open_exclusive.argtypes = None
+    hidapi.hid_darwin_get_open_exclusive.restype = ctypes.c_int
+
+    hidapi.hid_darwin_is_device_open_exclusive.argtypes = [ctypes.c_void_p]
+    hidapi.hid_darwin_is_device_open_exclusive.restype = ctypes.c_int
 
 def enumerate(vid=0, pid=0):
     ret = []
@@ -248,6 +261,14 @@ class Device(object):
         if self.__dev:
             hidapi.hid_close(self.__dev)
             self.__dev = None
+
+    if version >= (0, 12, 0) and sys.platform == 'darwin':
+        @property
+        def location_id(self):
+            loc_id = ctypes.c_uint32()
+            self.__hidcall(hidapi.hid_darwin_get_location_id, self.__dev, ctypes.byref(loc_id))
+
+            return loc_id.value
 
     @property
     def nonblocking(self):
